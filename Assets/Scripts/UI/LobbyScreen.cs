@@ -18,7 +18,7 @@ public class LobbyScreen : UIScreen
     protected override void OnShow()
     {
         base.OnShow();
-        _view.SetStatus("Ready");
+        _view.SetStatus("");
         _view.ShowJoinPreview(false);
         _view.ClearJoinInput();
         _view.SetMatchmakingState(false);

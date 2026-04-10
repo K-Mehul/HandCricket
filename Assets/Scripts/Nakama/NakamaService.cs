@@ -16,7 +16,7 @@ public class NakamaService
     {
         Client = new Client(
             "http",
-            "127.0.0.1",
+            "51.20.74.19",
             7350,
             "defaultkey"
         );

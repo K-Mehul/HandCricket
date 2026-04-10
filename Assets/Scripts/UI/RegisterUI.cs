@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using DG.Tweening;
 
 public class RegisterUI : UIScreen
 {
@@ -19,6 +20,16 @@ public class RegisterUI : UIScreen
         }
     }
 
+
+    public override void Show()
+    {
+        base.Show();
+
+        if(errorText != null) errorText.text = string.Empty;
+        if(username != null) username.text = string.Empty;
+        if(password != null) password.text = string.Empty;
+        if(email != null) email.text = string.Empty;
+    }
    
 
     private async void OnUsernameChanged(string val)
@@ -32,7 +43,15 @@ public class RegisterUI : UIScreen
         bool available = await auth.CheckUsername(val);
         if (!available)
         {
-            if (errorText != null) errorText.text = "Username already exists.";
+            if (errorText != null)
+            {
+                errorText.text = "Username already exists.";
+                // Try to find a UIAnimation on the error text or just do it via code for specific feedback
+                var anim = errorText.GetComponent<UIAnimation>();
+                if (anim != null && anim.animationType == UIAnimation.AnimType.Punch) anim.Play();
+                else errorText.transform.DOPunchPosition(new Vector3(10, 0, 0), 0.5f);
+                return;
+            }
         }
         else
         {
@@ -44,10 +63,18 @@ public class RegisterUI : UIScreen
     {
         if (string.IsNullOrEmpty(email.text) || string.IsNullOrEmpty(password.text) || string.IsNullOrEmpty(username.text))
         {
-           if(errorText != null) errorText.text = "Please fill in all fields.";
-           return;
-        }
+            if (errorText != null)
+            {
+                errorText.text = "Please fill in all fields.";
+                // Try to find a UIAnimation on the error text or just do it via code for specific feedback
+                var anim = errorText.GetComponent<UIAnimation>();
+                if (anim != null && anim.animationType == UIAnimation.AnimType.Punch) anim.Play();
+                else errorText.transform.DOPunchPosition(new Vector3(10, 0, 0), 0.5f);
+                return;
+            }
 
+            return;
+        }
         
         var result =
             await auth.Register(
@@ -58,7 +85,14 @@ public class RegisterUI : UIScreen
         if (!result.IsSuccess)
         {
             Debug.Log(result.Error);
-            if(errorText != null) errorText.text = result.Error;
+            if (errorText != null)
+            {
+                errorText.text = result.Error;
+                // Try to find a UIAnimation on the error text or just do it via code for specific feedback
+                var anim = errorText.GetComponent<UIAnimation>();
+                if (anim != null && anim.animationType == UIAnimation.AnimType.Punch) anim.Play();
+                else errorText.transform.DOPunchPosition(new Vector3(10, 0, 0), 0.5f);
+            }
             return;
         }
 

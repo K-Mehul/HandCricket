@@ -16,6 +16,16 @@ public class LoginUI : UIScreen
         // Redundant restoration removed. Handled by GameStarter.
     }
 
+    public override void Show()
+    {
+        base.Show();
+
+        if(email != null) email.text = string.Empty;
+        if(password != null) password.text = string.Empty;
+        if(errorText != null) errorText.text = string.Empty;
+    }
+
+
     public async void Login()
     {
         if (string.IsNullOrEmpty(email.text) || string.IsNullOrEmpty(password.text))

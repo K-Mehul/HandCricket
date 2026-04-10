@@ -87,7 +87,7 @@ public static class NakamaSessionManager
         InitializeProfile();
         PlayerPrefs.DeleteKey(_sessionKey);
         PlayerPrefs.DeleteKey(_refreshKey);
-        PlayerPrefs.Save();
+        PlayerPrefs.DeleteAll();
 
         if (NakamaService.Socket != null)
         {
