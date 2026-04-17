@@ -8,10 +8,21 @@ public class ClientMatchHandler : MonoBehaviour
     public static ClientMatchHandler Instance;
 
     private IMatch currentMatch;
+    public IMatch CurrentMatch => currentMatch;
     private ISocket socket => NakamaService.Socket;
 
-    // State Cache
+    // State Cache - PROTECTED FROM SERIALIZATION GHOSTS
     public string LastTossInitiatorId { get; private set; }
+    public bool IsLocalSimulation { get; set; } = false;
+
+    [NonSerialized] private TossStartPayload _lastTossStart;
+    public TossStartPayload LastTossStart => _lastTossStart;
+
+    [NonSerialized] private TossResultPayload _lastTossResult;
+    public TossResultPayload LastTossResult => _lastTossResult;
+
+    [NonSerialized] private GameStartPayload _lastGameStart;
+    public GameStartPayload LastGameStart => _lastGameStart;
 
     // Events for UI to subscribe to
     // These events decouple the UI from the network logic
@@ -32,6 +43,12 @@ public class ClientMatchHandler : MonoBehaviour
 
     void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Debug.LogWarning("[ClientMatchHandler] Duplicate instance detected. Destroying...");
+            Destroy(gameObject);
+            return;
+        }
         Instance = this;
     }
 
@@ -48,6 +65,7 @@ public class ClientMatchHandler : MonoBehaviour
     public void SetMatch(IMatch match)
     {
         currentMatch = match;
+        IsLocalSimulation = false; // CRITICAL: Ensure real match doesn't use sim logic
         Debug.Log("Match Handler Set for: " + match.Id);
         
         // Populate Usernames
@@ -87,11 +105,18 @@ public class ClientMatchHandler : MonoBehaviour
     public void Reset()
     {
         LastTossInitiatorId = null;
-        OpponentUsername = "Waiting...";
+        _lastTossStart = null;
+        _lastTossResult = null;
+        _lastGameStart = null;
+        IsLocalSimulation = false;
+        
+        MyUsername = "";
+        OpponentUsername = "";
         MaxOvers = 0;
         MaxWickets = 0;
         currentMatch = null;
-        Debug.Log("Client Match Handler Fully Reset.");
+        
+        Debug.Log("[ClientMatchHandler] DEEP RESET: Stale match data cleared. Ready for fresh session.");
     }
 
     public void LeaveMatch()
@@ -131,6 +156,14 @@ public class ClientMatchHandler : MonoBehaviour
 
     private void HandleMatchState(IMatchState state)
     {
+        // PROTECTION: If currentMatch is null, we are in the lobby/transition and should ignore state.
+        // OR: If the MatchId doesn't match the one we joined, it's a "Zombie Packet" from the previous match.
+        if (currentMatch == null || state.MatchId != currentMatch.Id)
+        {
+            Debug.LogWarning($"[ClientMatchHandler] Ignoring MatchState OpCode {state.OpCode} from Match {state.MatchId}. Current Match ID: {(currentMatch != null ? currentMatch.Id : "NULL")}");
+            return;
+        }
+
         string json = System.Text.Encoding.UTF8.GetString(state.State);
         Debug.Log($"Received OpCode {state.OpCode}: {json}");
 
@@ -144,6 +177,8 @@ public class ClientMatchHandler : MonoBehaviour
         {
             case 100:
                 var tossStart = JsonUtility.FromJson<TossStartPayload>(json);
+                bool isNew = (_lastTossStart == null || _lastTossStart.initiator_id != tossStart.initiator_id);
+                _lastTossStart = tossStart;
                 
                 // Set Names Early (Fix for "Waiting..." issue)
                 if (tossStart.p1_id == NakamaSessionManager.Session.UserId)
@@ -158,10 +193,11 @@ public class ClientMatchHandler : MonoBehaviour
                 }
 
                 LastTossInitiatorId = tossStart.initiator_id; 
-                OnTossStarted?.Invoke(tossStart.initiator_id);
+                if (isNew) OnTossStarted?.Invoke(tossStart.initiator_id);
                 break;
             case 101:
                 var tossResult = JsonUtility.FromJson<TossResultPayload>(json);
+                _lastTossResult = tossResult;
                 OnTossResult?.Invoke(tossResult.toss_winner, tossResult.outcome);
                 break;
             case 102:
@@ -183,6 +219,8 @@ public class ClientMatchHandler : MonoBehaviour
                 MaxWickets = gameStart.max_wickets;
                 MaxOvers = gameStart.max_overs;
 
+                _lastGameStart = gameStart;
+                Debug.Log("ONGAME START");
                 OnGameStarted?.Invoke(gameStart.batting_player, amIBatting);
                 break;
             case 103:
@@ -208,18 +246,26 @@ public class ClientMatchHandler : MonoBehaviour
 
     public async void SendTossSelection(string selection) // "Heads" or "Tails"
     {
+        if (IsLocalSimulation || currentMatch == null) return;
         var data = new TossSelectionPayload { selection = selection };
         await socket.SendMatchStateAsync(currentMatch.Id, 1, JsonUtility.ToJson(data));
     }
 
     public async void SendDecision(string choice) // "Bat" or "Bowl"
     {
+        if (IsLocalSimulation || currentMatch == null) return;
         var data = new DecisionPayload { choice = choice };
         await socket.SendMatchStateAsync(currentMatch.Id, 2, JsonUtility.ToJson(data));
     }
 
     public async void SendTurnInput(int input) // 1-6
     {
+        if (IsLocalSimulation || currentMatch == null)
+        {
+            Debug.Log($"[ClientMatchHandler] Local Simulation: Input {input} captured locally.");
+            return;
+        }
+        
         Debug.Log($"[ClientMatchHandler] Sending Turn Input: {input}");
         var data = new TurnInputPayload { input = input };
         try 
@@ -239,6 +285,8 @@ public class ClientMatchHandler : MonoBehaviour
     /// </summary>
     public async void RequestMatchState()
     {
+        if (IsLocalSimulation || currentMatch == null) return;
+        
         Debug.Log("[ClientMatchHandler] Requesting Full Match State...");
         await socket.SendMatchStateAsync(currentMatch.Id, 4, "{}");
     }

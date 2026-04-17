@@ -2,11 +2,14 @@ using Nakama;
 using Nakama.TinyJson;
 using System;
 using System.Threading.Tasks;
+using UnityEngine;
 
 public class AuthService
 {
     IClient client =>
         NakamaService.Client;
+
+    private Task<AuthResult> _pendingLoginTask;
 
     private System.Collections.Generic.Dictionary<string, string> GetAuthVars()
     {
@@ -20,6 +23,7 @@ public class AuthService
         string password,
         string username)
     {
+        Debug.Log($"AuthService: Starting Register for {email}...");
         if (!AuthValidator.ValidateEmail(email))
             return AuthResult.Fail("Invalid Email");
 
@@ -31,20 +35,39 @@ public class AuthService
 
         try
         {
-            var session =
-                await client.AuthenticateEmailAsync(
-                    email,
-                    password,
-                    username,
-                    create: true,
-                    vars: GetAuthVars());
+            ISession session = NakamaSessionManager.Session;
 
-            NakamaSessionManager.Save(session);
+            if (session != null)
+            {
+                Debug.Log("AuthService: Existing session found. Linking email to current account...");
+                // Link the email to the existing device account
+                await client.LinkEmailAsync(session, email, password);
+                
+                // Update the username for this account
+                await client.UpdateAccountAsync(session, username);
+                
+                Debug.Log("AuthService: Linking Successful.");
+            }
+            else
+            {
+                Debug.Log("AuthService: No session found. Creating fresh account...");
+                // Standard registration
+                session = await client.AuthenticateEmailAsync(
+                        email,
+                        password,
+                        username,
+                        create: true,
+                        vars: GetAuthVars());
+                
+                NakamaSessionManager.Save(session);
+                Debug.Log("AuthService: Fresh Registration Successful.");
+            }
 
             return AuthResult.Success();
         }
         catch (ApiResponseException e)
         {
+            Debug.LogError($"AuthService: Register Error: {e.Message}");
             return AuthResult.Fail(e.Message);
         }
     }
@@ -54,6 +77,7 @@ public class AuthService
         string email,
         string password)
     {
+        Debug.Log($"AuthService: Starting Login for {email}...");
         try
         {
             var session =
@@ -63,12 +87,14 @@ public class AuthService
                     create: false,
                     vars: GetAuthVars());
 
+            Debug.Log("AuthService: Login Successful.");
             NakamaSessionManager.Save(session);
 
             return AuthResult.Success();
         }
         catch (Exception e)
         {
+            Debug.LogError($"AuthService: Login Error: {e.Message}");
             return AuthResult.Fail(e.Message);
         }
     }
@@ -77,6 +103,7 @@ public class AuthService
     public async Task<AuthResult> LoginUsername(
         string username)
     {
+        Debug.Log($"AuthService: Starting LoginUsername for {username}...");
         try
         {
             var session =
@@ -85,28 +112,45 @@ public class AuthService
                     create: true,
                     vars: GetAuthVars());
 
+            Debug.Log("AuthService: LoginUsername Successful.");
             NakamaSessionManager.Save(session);
 
             return AuthResult.Success();
         }
         catch (Exception e)
         {
+            Debug.LogError($"AuthService: LoginUsername Error: {e.Message}");
             return AuthResult.Fail(e.Message);
         }
     }
 
     public async Task<AuthResult> LoginDevice()
     {
+        if (_pendingLoginTask != null && !_pendingLoginTask.IsCompleted)
+        {
+            Debug.Log("AuthService: Redundant LoginDevice call detected. Awaiting existing task...");
+            return await _pendingLoginTask;
+        }
+
+        _pendingLoginTask = PerformLoginDevice();
+        return await _pendingLoginTask;
+    }
+
+    private async Task<AuthResult> PerformLoginDevice()
+    {
+        Debug.Log("AuthService: Starting LoginDevice...");
         try
         {
-            var deviceId = UnityEngine.SystemInfo.deviceUniqueIdentifier;
+            var deviceId = NakamaService.GetDeviceId();
             var session = await client.AuthenticateDeviceAsync(deviceId, create: true, username: null, vars: GetAuthVars());
             
+            Debug.Log("AuthService: LoginDevice Successful.");
             NakamaSessionManager.Save(session);
             return AuthResult.Success();
         }
         catch (Exception e)
         {
+            Debug.LogError($"AuthService: LoginDevice Error: {e.Message}");
             return AuthResult.Fail(e.Message);
         }
     }
@@ -115,7 +159,7 @@ public class AuthService
     {
         if (client == null)
         {
-            UnityEngine.Debug.LogError("Nakama Client not initialized.");
+            UnityEngine.Debug.LogError("AuthService: Nakama Client not initialized.");
             return false;
         }
 
@@ -124,19 +168,28 @@ public class AuthService
             // If no session exists (common during registration), get a temporary device session
             if (NakamaSessionManager.Session == null)
             {
+                Debug.Log("AuthService: No session for CheckUsername, attempting device login...");
                 await LoginDevice();
             }
 
-            if (NakamaSessionManager.Session == null) return false;
+            if (NakamaSessionManager.Session == null) 
+            {
+                Debug.LogError("AuthService: Failed to acquire session for CheckUsername.");
+                return false;
+            }
 
+            Debug.Log($"AuthService: Calling Rpc 'check_username' for {username}...");
             var payload = new System.Collections.Generic.Dictionary<string, string> { { "username", username } }.ToJson();
             var result = await client.RpcAsync(NakamaSessionManager.Session, "check_username", payload);
+            
             var data = result.Payload.FromJson<System.Collections.Generic.Dictionary<string, bool>>();
-            return data.ContainsKey("available") && data["available"];
+            bool available = data.ContainsKey("available") && data["available"];
+            Debug.Log($"AuthService: CheckUsername Available = {available}");
+            return available;
         }
         catch (Exception e)
         {
-            UnityEngine.Debug.LogWarning($"CheckUsername info: {e.Message}");
+            UnityEngine.Debug.LogWarning($"AuthService: CheckUsername Info: {e.Message}");
             return false;
         }
     }

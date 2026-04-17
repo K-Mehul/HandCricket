@@ -46,6 +46,12 @@ public class LoginUI : UIScreen
             
             SocialService.Instance.Initialize(NakamaService.Socket);
             await SocialService.Instance.SetOnlineStatus(true);
+            
+            // Sync tutorial only once upon login
+            if (TutorialManager.Instance != null)
+            {
+                await TutorialManager.Instance.CheckTutorialStatusFromBackend();
+            }
 
             UIScreenManager.Instance.Show("MainMenuScreen");
         }

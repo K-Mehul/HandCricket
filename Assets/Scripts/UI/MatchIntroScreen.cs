@@ -14,6 +14,8 @@ public class MatchIntroScreen : UIScreen
     public TextMeshProUGUI matchInfoText; // "Stake: 50 | 2 Overs"
     public float displayDuration = 0f;
 
+    private Coroutine transitionCoroutine;
+
     protected override void OnShow()
     {
         base.OnShow();
@@ -29,7 +31,13 @@ public class MatchIntroScreen : UIScreen
         if(matchInfoText != null) matchInfoText.text = info;
         
         StopAllCoroutines();
-        StartCoroutine(TransitionRoutine());
+        if(transitionCoroutine != null)
+        {
+            StopCoroutine(transitionCoroutine);
+            transitionCoroutine = null;
+        }
+
+        transitionCoroutine = StartCoroutine(TransitionRoutine());
     }
 
     private IEnumerator TransitionRoutine()

@@ -53,8 +53,8 @@ public static class NakamaSessionManager
         // Restore session with both tokens
         var session = Nakama.Session.Restore(authToken, refreshToken);
 
-        // Check if token is expired or close to expiry (e.g. within 1 hour)
-        if (session.HasExpired(System.DateTime.UtcNow.AddHours(1)))
+        // Check if token is expired or close to expiry (e.g. within 15 mins)
+        if (session.HasExpired(System.DateTime.UtcNow.AddMinutes(15)))
         {
             if (string.IsNullOrEmpty(refreshToken))
             {

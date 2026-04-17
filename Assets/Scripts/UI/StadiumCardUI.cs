@@ -16,12 +16,12 @@ public class StadiumCardUI : MonoBehaviour
     [Header("Profile Data")]
     public UserData userData;
 
-    private StadiumData data;
+    public StadiumData Data { get; private set; }
     private Action<StadiumData> onSelected;
 
     public void Setup(StadiumData data, Action<StadiumData> onSelected)
     {
-        this.data = data;
+        this.Data = data;
         this.onSelected = onSelected;
 
         string finalName = !string.IsNullOrEmpty(data.displayName) ? data.displayName : data.name;

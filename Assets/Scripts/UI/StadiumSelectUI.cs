@@ -39,6 +39,25 @@ public class StadiumSelectUI : UIScreen
             registry = Resources.Load<StadiumRegistry>("StadiumRegistry");
         }
         PopulateStadiums();
+
+        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+        {
+            TutorialManager.Instance.SetState(TutorialManager.TutorialState.Stadium_Pick);
+            // We highlight the first card once it's populated (next frame or short delay)
+            Invoke("RegisterFirstStadiumTarget", 0.1f);
+        }
+    }
+
+    private void RegisterFirstStadiumTarget()
+    {
+        if (activeCards.Count > 0)
+        {
+            var cardUI = activeCards[0].GetComponent<StadiumCardUI>();
+            if (cardUI != null)
+            {
+                TutorialManager.Instance.RegisterTarget("FirstStadium", cardUI.GetComponent<RectTransform>());
+            }
+        }
     }
 
     private void PopulateStadiums()
@@ -80,6 +99,14 @@ public class StadiumSelectUI : UIScreen
         
         if (_onSelectionComplete != null)
         {
+            if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+            {
+                if (TutorialMatchSimulation.Instance != null)
+                {
+                    TutorialMatchSimulation.Instance.SetMatchConfig(data.overs, data.wickets);
+                }
+                TutorialManager.Instance.OnActionCompleted("Stadium");
+            }
             _onSelectionComplete.Invoke(data);
             _onSelectionComplete = null;
             // Do NOT call Close() here, as the callback handles transitioning to the next screen (e.g. MatchmakingScreen).

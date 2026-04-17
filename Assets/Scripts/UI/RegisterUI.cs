@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEngine;
 using DG.Tweening;
+using System.Threading.Tasks;
 
 public class RegisterUI : UIScreen
 {
@@ -32,7 +33,23 @@ public class RegisterUI : UIScreen
     }
    
 
-    private async void OnUsernameChanged(string val)
+    private float _debounceTimer = 0f;
+    private const float DEBOUNCE_TIME = 0.5f;
+    private string _lastCheckedUsername = "";
+
+    private void Update()
+    {
+        if (_debounceTimer > 0)
+        {
+            _debounceTimer -= Time.deltaTime;
+            if (_debounceTimer <= 0)
+            {
+                _ = PerformUsernameCheck(username.text);
+            }
+        }
+    }
+
+    private void OnUsernameChanged(string val)
     {
         if (string.IsNullOrEmpty(val) || val.Length < 3)
         {
@@ -40,17 +57,27 @@ public class RegisterUI : UIScreen
             return;
         }
 
+        // Delay the check
+        _debounceTimer = DEBOUNCE_TIME;
+    }
+
+    private async Task PerformUsernameCheck(string val)
+    {
+        if (val == _lastCheckedUsername) return;
+        _lastCheckedUsername = val;
+
+        Debug.Log($"RegisterUI: Checking username availability for '{val}'...");
         bool available = await auth.CheckUsername(val);
+        Debug.Log($"RegisterUI: Username '{val}' available = {available}");
+
         if (!available)
         {
             if (errorText != null)
             {
                 errorText.text = "Username already exists.";
-                // Try to find a UIAnimation on the error text or just do it via code for specific feedback
                 var anim = errorText.GetComponent<UIAnimation>();
                 if (anim != null && anim.animationType == UIAnimation.AnimType.Punch) anim.Play();
                 else errorText.transform.DOPunchPosition(new Vector3(10, 0, 0), 0.5f);
-                return;
             }
         }
         else

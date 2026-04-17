@@ -24,17 +24,20 @@ public class GameView : MonoBehaviour
 
     [Header("Toss UI")]
     public GameObject tossPanel;
+    public RectTransform tossButtonsRect; // Highlight this
     public TextMeshProUGUI tossStatusText;
     public Button headsButton;
     public Button tailsButton;
 
     [Header("Decision UI")]
     public GameObject decisionPanel;
+    public RectTransform decisionButtonsRect; // Highlight this
     public Button batButton;
     public Button bowlButton;
 
     [Header("Gameplay (Number Buttons)")]
     public GameObject gameplayInputPanel;
+    public RectTransform numberButtonsRect; // Highlight this
     public Button[] numberButtons; // Buttons for 1, 2, 3, 4, 5, 6
     public GameObject numberButtonPanel;
 
@@ -142,9 +145,17 @@ public class GameView : MonoBehaviour
             Button btn = numberButtons[i];
             btn.onClick.AddListener(() => PulseButton(btn, () => OnNumberPicked?.Invoke(val)));
         }
-
         
         CaptureWicketInitialState();
+    }
+
+    public bool IsPanelActive(string panelName)
+    {
+        if (panelName == "Toss") return tossPanel != null && tossPanel.activeInHierarchy;
+        if (panelName == "Decision") return decisionPanel != null && decisionPanel.activeInHierarchy;
+        if (panelName == "Game") return gameplayInputPanel != null && gameplayInputPanel.activeInHierarchy;
+        if (panelName == "Result") return resultPanel != null && resultPanel.activeInHierarchy;
+        return false;
     }
 
     public void ShowPanel(string panelName)
@@ -178,10 +189,14 @@ public class GameView : MonoBehaviour
 
     public void SetInputInteractivity(bool active)
     {
-        //foreach (var btn in numberButtons) btn.interactable = active;
+        if (numberButtonPanel == null) return;
+        
+        CanvasGroup group = numberButtonPanel.GetComponent<CanvasGroup>();
+        if (group == null) group = numberButtonPanel.AddComponent<CanvasGroup>();
 
-        numberButtonPanel.SetActive(active);
-
+        group.interactable = active;
+        group.blocksRaycasts = active;
+        group.alpha = active ? 1.0f : 0.6f;
     }
 
     public void UpdateScoreDisplay(string scoreInfo, string statusMessage, int currentBalls = -1, int maxOvers = -1, int target = -1)
@@ -271,7 +286,11 @@ public class GameView : MonoBehaviour
     public void PlayScoringAnimation(string type, Action onComplete = null)
     {
         // Don't show scoring banners if match is over and result screen is up
-        if (resultPanel != null && resultPanel.activeInHierarchy) return;
+        if (resultPanel != null && resultPanel.activeInHierarchy)
+        {
+            onComplete?.Invoke();
+            return;
+        }
 
         GameObject banner = null;
         if (type == "WICKET") banner = wicketBanner;
@@ -393,6 +412,7 @@ public class GameView : MonoBehaviour
     
     public void ShowResult(string title, string details, bool leveledUp, int newLevel)
     {
+        UpdateTimer(0, false);
         ShowPanel("Result");
         if (resultTitleText != null) resultTitleText.text = title;
         

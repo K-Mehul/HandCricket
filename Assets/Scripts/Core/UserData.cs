@@ -7,6 +7,7 @@ public class UserData : ScriptableObject
     public int coins;
     public int level = 1;
     public int xp;
+    public bool isTutorialCompleted;
 
     [Header("Career Stats")]
     public int Matches;

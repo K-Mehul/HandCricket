@@ -46,8 +46,39 @@ public class MainMenuPresenter
         UpdateProfileUI();
         UpdateSocialBadge();
 
+        // Check if this is the first time showing the bonus for this session
+        string bonusKey = "BonusAnimated_" + NakamaSessionManager.Session?.UserId;
+        bool isNewForBonus = NakamaSessionManager.Session != null && !PlayerPrefs.HasKey(bonusKey);
+
         await RefreshProfileData();
+        
+        if (isNewForBonus && (_userData.coins > 0 || _userData.xp > 0))
+        {
+            // Reset UI briefly to 0 for the animation effect
+            _view.UpdateProfile(_userData.username, _userData.level, 0, 0);
+            _view.AnimateProfileStats(_userData.coins, _userData.xp);
+            
+            PlayerPrefs.SetInt(bonusKey, 1);
+            PlayerPrefs.Save();
+        }
+
         _socialService.RefreshPendingCount();
+        
+        // Tutorial Check (Local/Cached only)
+        CheckTutorialStart();
+    }
+
+    private void CheckTutorialStart()
+    {
+        // Simple logic for first time user: Matches == 0
+        if (_userData.Matches == 0 && !PlayerPrefs.HasKey("TutorialCompleted"))
+        {
+            if (TutorialManager.Instance != null && _view.playButtonRect != null)
+            {
+                TutorialManager.Instance.RegisterTarget("PlayButton", _view.playButtonRect);
+                TutorialManager.Instance.StartTutorial();
+            }
+        }
     }
 
     private void UpdateProfileUI()

@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System;
+using DG.Tweening;
 
 public class MainMenuView : MonoBehaviour
 {
@@ -13,6 +14,7 @@ public class MainMenuView : MonoBehaviour
 
     [Header("Buttons")]
     public Button playButton;
+    public RectTransform playButtonRect;
     public Button friendsButton;
     public Button profileButton;
     public Button leaderboardButton;
@@ -21,6 +23,10 @@ public class MainMenuView : MonoBehaviour
     [Header("Social Feed")]
     public GameObject friendsNotificationBadge;
     public TextMeshProUGUI badgeText;
+
+    [Header("Audio")]
+    public AudioSource audioSource;
+    public AudioClip coinTickClip;
 
     // Events for the Presenter to listen to
     public event Action OnPlayClicked;
@@ -44,6 +50,34 @@ public class MainMenuView : MonoBehaviour
         if (levelText != null) levelText.text = $"Lvl {level}";
         if (coinsText != null) coinsText.text = coins.ToString();
         if (xpText != null) xpText.text = $"XP: {xp}";
+    }
+
+    public void AnimateProfileStats(int targetCoins, int targetXP, float duration = 1.5f)
+    {
+        // Start from current displayed (or 0 if new)
+        int startCoins = 0;
+        int startXP = 0;
+
+        // Coins Animation
+        DOTween.To(() => startCoins, x => {
+            startCoins = x;
+            if (coinsText != null) coinsText.text = startCoins.ToString();
+            // Play a tick sound every few counts or just rhythmic
+            if (audioSource != null && coinTickClip != null && x % 5 == 0) 
+                audioSource.PlayOneShot(coinTickClip, 0.5f);
+        }, targetCoins, duration).SetEase(Ease.OutQuad)
+        .OnComplete(() => {
+            if (coinsText != null) coinsText.transform.DOPunchScale(Vector3.one * 0.2f, 0.3f);
+        });
+
+        // XP Animation
+        DOTween.To(() => startXP, x => {
+            startXP = x;
+            if (xpText != null) xpText.text = $"XP: {startXP}";
+        }, targetXP, duration).SetEase(Ease.OutQuad)
+        .OnComplete(() => {
+            if (xpText != null) xpText.transform.DOPunchScale(Vector3.one * 0.2f, 0.3f);
+        });
     }
 
     public void UpdateSocialBadge(int count)

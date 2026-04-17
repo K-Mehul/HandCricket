@@ -22,6 +22,12 @@ public class LobbyScreen : UIScreen
         _view.ShowJoinPreview(false);
         _view.ClearJoinInput();
         _view.SetMatchmakingState(false);
+
+        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+        {
+            TutorialManager.Instance.RegisterTarget("GlobalButton", _view.findMatchButtonRect);
+            TutorialManager.Instance.SetState(TutorialManager.TutorialState.Lobby_Global);
+        }
     }
 
     void OnDestroy()

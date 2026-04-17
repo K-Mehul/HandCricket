@@ -37,16 +37,17 @@ public class MatchmakingService
         
         try 
         {
-            // Create/Init ClientMatchHandler BEFORE joining to capture early messages
+            // 1. Ensure Handler exists and Reset BEFORE joining
             MainThreadDispatcher.Enqueue(() => {
                 if (ClientMatchHandler.Instance == null)
                 {
                     var handlerObj = new GameObject("ClientMatchHandler");
                     handlerObj.AddComponent<ClientMatchHandler>();
-                    UnityEngine.Object.DontDestroyOnLoad(handlerObj);
+                    Object.DontDestroyOnLoad(handlerObj);
                     ClientMatchHandler.Instance = handlerObj.GetComponent<ClientMatchHandler>();
+                    ClientMatchHandler.Instance.Prepare();
                 }
-                ClientMatchHandler.Instance.Prepare(); // Start listening
+                ClientMatchHandler.Instance.Reset();
             });
 
              var match = await NakamaService.Socket.JoinMatchAsync(matched);
@@ -93,7 +94,8 @@ public class MatchmakingService
                  }
                  else 
                  {
-                    // Fallback
+                     // Fallback
+                     Debug.Log("FALLBACK GAME SCENE");
                     UIScreenManager.Instance.Show("GameScene");
                  }
              });
@@ -284,6 +286,7 @@ public class MatchmakingService
     {
         try 
         {
+            // 1. Ensure Handler exists and Reset BEFORE joining
             MainThreadDispatcher.Enqueue(() => {
                 if (ClientMatchHandler.Instance == null)
                 {
@@ -291,8 +294,9 @@ public class MatchmakingService
                     handlerObj.AddComponent<ClientMatchHandler>();
                     UnityEngine.Object.DontDestroyOnLoad(handlerObj);
                     ClientMatchHandler.Instance = handlerObj.GetComponent<ClientMatchHandler>();
+                    ClientMatchHandler.Instance.Prepare();
                 }
-                ClientMatchHandler.Instance.Prepare();
+                //ClientMatchHandler.Instance.Reset();
             });
 
             var match = await socket.JoinMatchAsync(matchId);
@@ -343,6 +347,7 @@ public class MatchmakingService
                 }
                 else 
                 {
+                    Debug.Log("BOT MATCH GAME SCENE");
                     UIScreenManager.Instance.Show("GameScene");
                 }
             });

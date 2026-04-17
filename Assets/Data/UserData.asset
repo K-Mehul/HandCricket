@@ -16,3 +16,18 @@ MonoBehaviour:
   coins: 0
   level: 1
   xp: 0
+  isTutorialCompleted: 0
+  Matches: 0
+  Wins: 0
+  Losses: 0
+  Draws: 0
+  TotalRuns: 0
+  HighestScore: 0
+  BallsFaced: 0
+  FourCount: 0
+  SixCount: 0
+  TotalWickets: 0
+  BallsBowled: 0
+  RunsConceded: 0
+  BestWickets: 0
+  BestRuns: 0

@@ -12,7 +12,7 @@ public class StadiumService : MonoBehaviour
     [SerializeField] private StadiumRegistry registry;
     
     // Runtime cached list of stadiums synced from backend
-    private List<StadiumData> syncedStadiums = new List<StadiumData>();
+    [SerializeField] private List<StadiumData> syncedStadiums = new List<StadiumData>();
 
     private void Awake()
     {

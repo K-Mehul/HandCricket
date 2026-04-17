@@ -4,20 +4,20 @@ using System.Collections.Generic;
 [CreateAssetMenu(fileName = "StadiumRegistry", menuName = "HandCricket/Stadium Registry")]
 public class StadiumRegistry : ScriptableObject
 {
-    public List<StadiumData> stadiums;
+    [field:SerializeField] public List<StadiumData> stadiums;
 }
 
 [System.Serializable]
 public class StadiumData
 {
-    public string name;
-    public string displayName;
-    public int stake;
-    public int overs;
-    public int wickets;
-    public Sprite icon;
-    public Color themeColor = Color.white;
-    public Sprite cardBackground;
-    public string description;
-    public int minLevel = 1;
+    [field:SerializeField] public string name;
+    [field:SerializeField] public string displayName;
+    [field:SerializeField] public int stake;
+    [field:SerializeField] public int overs;
+    [field:SerializeField] public int wickets;
+    [field:SerializeField] public Sprite icon;
+    [field:SerializeField] public Color themeColor = Color.white;
+    [field:SerializeField] public Sprite cardBackground;
+    [field:SerializeField] public string description;
+    [field: SerializeField] public int minLevel = 1;
 }

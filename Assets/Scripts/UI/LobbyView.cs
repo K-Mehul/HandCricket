@@ -7,6 +7,7 @@ public class LobbyView : MonoBehaviour
 {
     [Header("Matchmaking UI")]
     public Button findMatchButton;
+    public RectTransform findMatchButtonRect;
     public Button cancelMatchButton;
     public Button createPrivateButton;
     public TextMeshProUGUI statusText;

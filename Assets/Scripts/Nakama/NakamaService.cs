@@ -14,14 +14,30 @@ public class NakamaService
 
     public static void Initialize()
     {
+        // CRITICAL FOR WEBGL: We must use the UnityWebRequestAdapter
         Client = new Client(
             "http",
-            "51.20.74.19",
+            "handcricket.duckdns.org",
             7350,
-            "defaultkey"
+            "defaultkey",
+            UnityWebRequestAdapter.Instance
         );
 
         Client.Timeout = 10;
+    }
+
+    public static string GetDeviceId()
+    {
+        // In WebGL, SystemInfo.deviceUniqueIdentifier can sometimes be empty.
+        // We use PlayerPrefs to store a persistent ID as a fallback.
+        string id = PlayerPrefs.GetString("nk_device_id", "");
+        if (string.IsNullOrEmpty(id))
+        {
+            id = System.Guid.NewGuid().ToString();
+            PlayerPrefs.SetString("nk_device_id", id);
+            PlayerPrefs.Save();
+        }
+        return id;
     }
 
     public static async Task ConnectSocket(

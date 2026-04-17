@@ -15,6 +15,7 @@ public class GamePresenter
     private ClientMatchHandler.MatchSummaryPayload _pendingSummaryPayload;
     private bool _isTransitioning = false;
     private bool _isSimulationRunning = false;
+    private bool _isTurnDecided = false;
     private int _maxOvers = 0;
 
     // Timer Logic
@@ -33,10 +34,11 @@ public class GamePresenter
     public void Subscribe()
     {
         // Ensure we have a match handler if it was null at construction
-        if (_matchHandler == null) _matchHandler = ClientMatchHandler.Instance;
-        
+        _matchHandler = ClientMatchHandler.Instance;
+
         // Unsubscribe first to avoid duplicates
-        Cleanup();
+        //Cleanup();
+
 
         if (_matchHandler == null)
         {
@@ -44,7 +46,9 @@ public class GamePresenter
             return;
         }
 
+        Debug.Log("Game Presenter : Subscribe Game Presenter");
         // Network Events
+        _matchHandler.OnTossStarted += HandleTossStarted;
         _matchHandler.OnTossResult += HandleTossResult;
         _matchHandler.OnGameStarted += HandleGameStarted;
         _matchHandler.OnTurnResult += HandleTurnResult;
@@ -54,22 +58,70 @@ public class GamePresenter
 
         // View Events
         _view.OnDecisionMade += (decision) => {
-            StopTimer();
-            _view.ShowYourTurn(false);
-            _matchHandler.SendDecision(decision);
-        };
-        _view.OnNumberPicked += (num) => {
+            if (_isTurnDecided) return;
+            _isTurnDecided = true;
+
             StopTimer();
             _view.ShowYourTurn(false);
             _view.SetInputInteractivity(false);
-            _matchHandler.SendTurnInput(num);
+            if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+            {
+                TutorialManager.Instance.OnActionCompleted("Decision");
+                if (TutorialMatchSimulation.Instance != null)
+                {
+                    TutorialMatchSimulation.Instance.OnDecisionMade(decision);
+                }
+            }
+            else
+            {
+                _matchHandler.SendDecision(decision);
+            }
         };
-        _view.OnTossCalled += (call) => {
+        _view.OnNumberPicked += (num) => {
+            if (_isTurnDecided) return;
+            _isTurnDecided = true;
+
             StopTimer();
             _view.ShowYourTurn(false);
-            _matchHandler.SendTossSelection(call);
+            _view.SetInputInteractivity(false);
+            
+            if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+            {
+                TutorialManager.Instance.OnActionCompleted("Turn");
+                if (TutorialMatchSimulation.Instance != null)
+                {
+                    TutorialMatchSimulation.Instance.OnNumberPicked(num);
+                }
+            }
+            else
+            {
+                _matchHandler.SendTurnInput(num);
+            }
+        };
+        _view.OnTossCalled += (call) => {
+            if (_isTurnDecided) return;
+            _isTurnDecided = true;
+
+            StopTimer();
+            _view.ShowYourTurn(false);
+            _view.SetInputInteractivity(false);
+            
+            if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+            {
+                TutorialManager.Instance.OnActionCompleted("Toss");
+                if (TutorialMatchSimulation.Instance != null)
+                {
+                    TutorialMatchSimulation.Instance.OnTossCalled(call);
+                }
+            }
+            else
+            {
+                _matchHandler.SendTossSelection(call);
+            }
         };
         _view.OnBackToLobby += () => {
+            Cleanup();
+            _matchHandler.Reset();
             _view.SetStadiumActive(false);
             _view.ResetAnimators();
             UIScreenManager.Instance.Show("LobbyScreen");
@@ -78,23 +130,108 @@ public class GamePresenter
 
     public void Cleanup()
     {
+        StopTimer();
+        // Ironclad Cleanup: Kill all background timers and delayed logic calls 
+        // to prevent "Zombie Timers" from Match 1 affecting Match 2.
+        DOTween.KillAll(); 
+
         if (_matchHandler == null) return;
         
+        _matchHandler.OnTossStarted -= HandleTossStarted;
         _matchHandler.OnTossResult -= HandleTossResult;
         _matchHandler.OnGameStarted -= HandleGameStarted;
         _matchHandler.OnTurnResult -= HandleTurnResult;
         _matchHandler.OnInningsChanged -= HandleInningsChanged;
         _matchHandler.OnGameOver -= HandleGameOver;
         _matchHandler.OnMatchSummary -= HandleMatchSummary;
+
+        //_matchHandler.Reset();
+        Debug.Log("[GamePresenter] Match Handler Reset called during Cleanup.");
     }
 
-    public void Init(bool isMeTossing)
+    public void Init(bool isMeTossingFallback)
     {
+        Debug.Log("[GamePresenter] Initializing fresh Match UI.");
+        _matchHandler = ClientMatchHandler.Instance;
+
         // Forceful speed reset in case previous match ended during slow-mo
         Time.timeScale = 1.0f;
         Time.fixedDeltaTime = 0.02f;
 
+        //Cleanup();
+        
+        // IRON RESET: Clear any visual state from Match #1
+        if (_view != null) 
+        {
+            _view.ShowPanel("Wait");
+        }
+
         _isTransitioning = false;
+        _isSimulationRunning = false;
+        _isTurnDecided = false;
+
+        // CATCH-UP LOGIC: Jump to the latest known state
+        // 1. If Game already started (CATCH-UP LOGIC)
+        // If this fires on a fresh match, it means stale data from a previous session leaked.
+        if (_matchHandler.LastGameStart != null && !string.IsNullOrEmpty(_matchHandler.LastGameStart.batting_player))
+        {
+            Debug.Log($"[GamePresenter] Catch-up: Game already started (Batting: {_matchHandler.LastGameStart.batting_player}). Match ID: {(_matchHandler.CurrentMatch != null ? _matchHandler.CurrentMatch.Id : "UNKNOWN")}");
+            HandleGameStarted(_matchHandler.LastGameStart.batting_player,
+                             (_matchHandler.LastGameStart.batting_player == NakamaSessionManager.Session.UserId));
+            return;
+        }
+
+        //// 2. If Toss Result is already known
+        if (_matchHandler.LastTossResult != null && !string.IsNullOrEmpty(_matchHandler.LastTossResult.toss_winner))
+        {
+            Debug.Log($"[GamePresenter] Catch-up: Toss Result already known (Winner: {_matchHandler.LastTossResult.toss_winner}). Match ID: {(_matchHandler.CurrentMatch != null ? _matchHandler.CurrentMatch.Id : "UNKNOWN")}");
+            HandleTossResult(_matchHandler.LastTossResult.toss_winner, _matchHandler.LastTossResult.outcome);
+            return;
+        }
+
+        //// 3. If Toss just started or is active
+        if (_matchHandler.LastTossStart != null && !string.IsNullOrEmpty(_matchHandler.LastTossStart.initiator_id))
+        {
+            Debug.Log($"[GamePresenter] Catch-up: Toss active (Initiator: {_matchHandler.LastTossStart.initiator_id}). Match ID: {(_matchHandler.CurrentMatch != null ? _matchHandler.CurrentMatch.Id : "UNKNOWN")}");
+            HandleTossStarted(_matchHandler.LastTossStart.initiator_id);
+            return;
+        }
+
+        // Standard Fallback from parameter
+        Debug.Log("ToSS");
+        _view.ShowPanel("Toss");
+        _view.UpdateNames(_matchHandler.MyUsername, _matchHandler.OpponentUsername);
+        
+        if (isMeTossingFallback)
+        {
+            HandleTossStarted(NakamaSessionManager.Session.UserId);
+        }
+        else
+        {
+            _view.SetTossInteractable(false, "Opponent calling toss...");
+            _view.ShowYourTurn(false);
+            _view.UpdateTimer(0, false);
+        }
+    }
+
+    private void HandleTossStarted(string initiatorId)
+    {
+        Debug.Log("Handle Toss Started");
+        // IDEMPOTENCY GUARD: If we are already on the Toss screen and haven't made a choice yet,
+        // ignore redundant "Start" messages (e.g., from catch-up resyncs).
+        if (_view != null && _view.IsPanelActive("Toss") && !_isTurnDecided)
+        {
+            Debug.Log("[GamePresenter] Ignoring redundant TossStarted message.");
+            return;
+        }
+
+        // Debounce: If already in Decision or Game, ignore toss starts
+        if (_view != null && (_view.IsPanelActive("Decision") || _view.IsPanelActive("Game") || _view.IsPanelActive("Result"))) return;
+
+        bool isMeTossing = (initiatorId == NakamaSessionManager.Session.UserId);
+
+        Debug.Log("[TOSS      SCREEN       OPENNNNNNNNNNNN]");
+
         _view.ShowPanel("Toss");
         _view.UpdateNames(_matchHandler.MyUsername, _matchHandler.OpponentUsername);
         
@@ -102,14 +239,30 @@ public class GamePresenter
         {
             _view.SetTossInteractable(true, "CALL THE TOSS!");
             _view.ShowYourTurn(true);
-            StartTimer(TOSS_DURATION, () => {
-                string pick = UnityEngine.Random.value > 0.5f ? "HEADS" : "TAILS";
-                _view.FlashAutoSelection(pick);
-                
-                DOVirtual.DelayedCall(1.2f, () => {
-                   _matchHandler.SendTossSelection(pick);
+            _isTurnDecided = false;
+
+            if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+            {
+                TutorialManager.Instance.RegisterTarget("TossButtons", _view.tossButtonsRect);
+                TutorialManager.Instance.SetState(TutorialManager.TutorialState.Match_Toss);
+                // In tutorial, we DON'T start the timer, or we give a massive duration
+                _view.UpdateTimer(0, false); 
+            }
+            else
+            {
+                StartTimer(TOSS_DURATION, () => {
+                    _view.SetTossInteractable(false, "Time's up!");
+                    if (_isTurnDecided) return;
+                    _isTurnDecided = true;
+
+                    string pick = UnityEngine.Random.value > 0.5f ? "HEADS" : "TAILS";
+                    _view.FlashAutoSelection(pick);
+                    
+                    DOVirtual.DelayedCall(1.2f, () => {
+                       _matchHandler.SendTossSelection(pick);
+                    });
                 });
-            });
+            }
         }
         else
         {
@@ -121,6 +274,15 @@ public class GamePresenter
 
     private void HandleTossResult(string winnerId, string outcome)
     {
+        Debug.Log("HANDLE TOSSSSSS   RESULTTTT");
+
+        // IDEMPOTENCY GUARD: If we are already past the Toss screen, ignore redundant/resync calls
+        if (_view != null && (_view.IsPanelActive("Decision") || _view.IsPanelActive("Game") || _view.IsPanelActive("Result"))) 
+        {
+            Debug.Log("[GamePresenter] Ignoring redundant TossResult message.");
+            return;
+        }
+
         bool won = (winnerId == NakamaSessionManager.Session.UserId);
         string resultMsg = $"Outcome: {outcome}. " + (won ? "YOU WON!" : "OPPONENT WON!");
         
@@ -135,20 +297,37 @@ public class GamePresenter
             DOVirtual.DelayedCall(1.2f, () => {
                 _view.ShowPanel("Decision");
                 _view.ShowYourTurn(true);
-                StartTimer(DECISION_DURATION, () => {
-                    string pick = UnityEngine.Random.value > 0.5f ? "BAT" : "BOWL";
-                    _view.FlashAutoSelection(pick);
-                    
-                    DOVirtual.DelayedCall(1.2f, () => {
-                        _matchHandler.SendDecision(pick);
+                _isTurnDecided = false;
+                
+                if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+                {
+                    TutorialManager.Instance.RegisterTarget("DecisionButtons", _view.decisionButtonsRect);
+                    TutorialManager.Instance.SetState(TutorialManager.TutorialState.Match_Decision);
+                    _view.UpdateTimer(0, false);
+                }
+                else
+                {
+                    StartTimer(DECISION_DURATION, () => {
+                        _view.SetInputInteractivity(false);
+                        if (_isTurnDecided) return;
+                        _isTurnDecided = true;
+
+                        string pick = UnityEngine.Random.value > 0.5f ? "BAT" : "BOWL";
+                        _view.FlashAutoSelection(pick);
+                        
+                        DOVirtual.DelayedCall(1.2f, () => {
+                            _matchHandler.SendDecision(pick);
+                        });
                     });
-                });
+                }
             });
         }
     }
 
     private void HandleGameStarted(string battingPlayerId, bool amBatting)
     {
+        Debug.Log("HANDLE GAME STARTED");
+
         _amIBatting = amBatting;
         _view.ShowPanel("Game");
         _view.UpdateRole(_amIBatting ? "BATTING" : "BOWLING");
@@ -156,14 +335,23 @@ public class GamePresenter
             
         // SEQUENTIAL BANNER KICKOFF
         _view.ShowPhaseBanner("MATCH START!", 1.5f, () => {
-             // Small buffer before Role Banner
-             DOVirtual.DelayedCall(0.5f, () => {
-                 _view.ShowRoleBanner(_amIBatting ? "BATTING" : "BOWLING");
-
-                 DOVirtual.DelayedCall(1.5f, () => {
-                    PrepareTurn();
-                });
-            });
+            if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+            {
+                // In tutorial, we pause the sequence for the Opponent Intro
+                TutorialManager.Instance.SetState(TutorialManager.TutorialState.Match_Intro);
+                
+                Action onIntroComplete = null;
+                onIntroComplete = () => {
+                    TutorialManager.Instance.OnMatchIntroFinished -= onIntroComplete;
+                    ShowRoleAndStart();
+                };
+                TutorialManager.Instance.OnMatchIntroFinished += onIntroComplete;
+            }
+            else
+            {
+                // Normal flow
+                ShowRoleAndStart();
+            }
         });
         
         _maxOvers = _matchHandler != null ? _matchHandler.MaxOvers : 0;
@@ -180,19 +368,52 @@ public class GamePresenter
         _view.ResetAnimators();
     }
 
-    private void PrepareTurn()
+    private void ShowRoleAndStart()
     {
-        _view.SetInputInteractivity(true);
-        _view.ShowYourTurn(true);
-        StartTimer(TURN_DURATION, () => {
-            int pick = UnityEngine.Random.Range(1, 7);
-            _view.FlashAutoSelection(pick.ToString());
-            
-            DOVirtual.DelayedCall(1.2f, () => {
-                _view.SetInputInteractivity(false);
-                _matchHandler.SendTurnInput(pick);
+        // Small buffer before Role Banner
+        DOVirtual.DelayedCall(0.5f, () => {
+            _view.ShowRoleBanner(_amIBatting ? "BATTING" : "BOWLING");
+
+            DOVirtual.DelayedCall(1.5f, () => {
+                PrepareTurn();
             });
         });
+    }
+
+    private void PrepareTurn()
+    {
+        // PHASE GUARD: Never start a turn timer if we aren't actually on the Gameplay screen
+        if (_view == null || !_view.IsPanelActive("Game"))
+        {
+            Debug.LogWarning("[GamePresenter] PrepareTurn blocked: Gameplay panel is not active.");
+            return;
+        }
+
+        _isTurnDecided = false;
+        _view.SetInputInteractivity(true);
+        _view.ShowYourTurn(true);
+
+        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+        {
+            TutorialManager.Instance.RegisterTarget("NumberInputs", _view.numberButtonsRect);
+            TutorialManager.Instance.SetState(_amIBatting ? TutorialManager.TutorialState.Match_Gameplay_Batting : TutorialManager.TutorialState.Match_Gameplay_Bowling);
+            _view.UpdateTimer(0, false);
+        }
+        else
+        {
+            StartTimer(TURN_DURATION, () => {
+                _view.SetInputInteractivity(false);
+                if (_isTurnDecided) return;
+                _isTurnDecided = true;
+
+                int pick = UnityEngine.Random.Range(1, 7);
+                _view.FlashAutoSelection(pick.ToString());
+                
+                DOVirtual.DelayedCall(1.2f, () => {
+                    _matchHandler.SendTurnInput(pick);
+                });
+            });
+        }
     }
 
     private void HandleTurnResult(ClientMatchHandler.TurnResultPayload data)
@@ -226,19 +447,18 @@ public class GamePresenter
         _isSimulationRunning = true;
         _view.PlayPerfectSimulation(data.bat_input, data.bowl_input, () => {
             // Update score once simulation finishes its movement
-            int displayBalls = data.balls + 1; 
+            int displayBalls = data.balls; 
+            _view.UpdateBallHistory(eventType == "WICKET" ? "W" : data.bat_input.ToString());
+
+            // FIX: Increment displayBalls for UI only (to show 0.1 after 1st ball, not 0.0)
+            int finalDisplayBalls = displayBalls + 1;
             string myScoreMsg = $"SCORE: {data.batsman_score}/{data.batsman_wickets}";
-            _view.UpdateScoreDisplay(myScoreMsg, statusMsg, displayBalls, _maxOvers, data.target);
+            _view.UpdateScoreDisplay(myScoreMsg, statusMsg, finalDisplayBalls, _maxOvers, data.target);
             
             // Set Names for current batsman/bowler
             string myName = _matchHandler.MyUsername;
             string oppName = _matchHandler.OpponentUsername;
             _view.UpdateNames(_amIBatting ? myName : oppName, _amIBatting ? oppName : myName);
-            
-            // Auto-clear history if we just finished an over (multiple of 6)
-            // if (displayBalls > 0 && displayBalls % 6 == 0) _view.ClearBallHistory();
-            
-            _view.UpdateBallHistory(eventType == "WICKET" ? "W" : data.bat_input.ToString());
 
             UpdateAtmosphere(displayBalls, data.target, data.batsman_score);
 
@@ -306,6 +526,7 @@ public class GamePresenter
 
     private void SwitchInnings()
     {
+        Debug.Log("SWUTCH INNINGS");
         _isTransitioning = false;
         _view.ShowPanel("Game");
         
@@ -377,6 +598,7 @@ public class GamePresenter
                 if (data.winner == "DRAW") title = "DRAW";
 
                 string details = $"Earnings:\nCoins: +{data.coins_earned}\nXP: +{data.xp_earned}";
+                StopTimer();
                 _view.ShowResult(title, details, data.leveled_up, data.new_level);
             } else {
                 DOVirtual.DelayedCall(checkInterval, () => checkAndShowResult());
