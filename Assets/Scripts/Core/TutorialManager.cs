@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -115,33 +115,35 @@ public class TutorialManager : MonoBehaviour
             case TutorialState.Welcome:
                 if (_currentSubStep == 0)
                 {
-                    CoachDialogUI.Instance?.ShowMessage("Welcome to Hand Cricket! As a special bonus, I've credited some starting tokens and XP to your account!", true);
+                    CoachDialogUI.Instance?.ShowMessage("Welcome to Hand Cricket! I've added some starting tokens and XP to help you begin your journey.", true);
                 }
                 else
                 {
-                    CoachDialogUI.Instance?.ShowMessage("I'm your Team Coach. I'll guide you through your first match and help you master the game!", true);
+                    CoachDialogUI.Instance?.ShowMessage("I'm your Team Coach. I'll guide you step-by-step so you can quickly learn how to play and win matches!!", true);
                 }
                 SpotlightUI.Instance?.ShowFullOverlay();
+                CoachDialogUI.Instance?.Reposition(null);
                 break;
 
             case TutorialState.MainMenu_Play:
-                CoachDialogUI.Instance?.ShowMessage("First, click on the PLAY button to enter the match lobby.", false);
+                CoachDialogUI.Instance?.ShowMessage("Tap on the PLAY button to start a match. This is where your journey begins.", false);
                 SpotlightUI.Instance?.ShowFullOverlay(); // Block until speaking finishes
                 break;
 
             case TutorialState.Lobby_Global:
-                CoachDialogUI.Instance?.ShowMessage("Now, tap on GLOBAL MATCH to find a practice session.", false);
+                CoachDialogUI.Instance?.ShowMessage("Select GLOBAL MATCH to join a practice game and learn the basics.", false);
                 SpotlightUI.Instance?.ShowFullOverlay();
                 break;
 
             case TutorialState.Stadium_Pick:
-                CoachDialogUI.Instance?.ShowMessage("Excellent! Now, select the Gully Cricket stadium to start your journey.", false);
+                CoachDialogUI.Instance?.ShowMessage("Choose the Gully Cricket stadium. Each match takes place in a stadium like this.", false);
                 SpotlightUI.Instance?.ShowFullOverlay();
                 break;
 
             case TutorialState.Matchmaking_Wait:
-                CoachDialogUI.Instance?.ShowMessage("Finding you a practice match. Just a moment...", true);
+                CoachDialogUI.Instance?.ShowMessage("Finding you an opponent... Get ready to play your first Hand Cricket match!", true);
                 SpotlightUI.Instance?.ShowFullOverlay();
+                CoachDialogUI.Instance?.Reposition(null);
                 // Start the local fake match simulation
                 if (TutorialMatchSimulation.Instance != null)
                 {
@@ -153,29 +155,34 @@ public class TutorialManager : MonoBehaviour
             case TutorialState.Match_Intro:
                 if (_currentSubStep == 0)
                 {
-                    CoachDialogUI.Instance?.ShowMessage("Here's your opponent! Today we play a standard match.", true);
+                    CoachDialogUI.Instance?.ShowMessage("Here's your opponent! In Hand Cricket, both players choose numbers each turn.", true);
+                }
+                else if(_currentSubStep == 1)
+                {
+                    CoachDialogUI.Instance?.ShowMessage("In a match, your goal is simple: score more runs than your opponent to win.", true);
                 }
                 else
                 {
-                    CoachDialogUI.Instance?.ShowMessage("In a standard match, you need to score more runs than your opponent to win. Good luck!", true);
+                    CoachDialogUI.Instance?.ShowMessage("You pick 4 and opponent picks 2 → You score 4 runs. If both pick 4 → OUT!", true);
                 }
                 SpotlightUI.Instance?.ShowFullOverlay();
+                CoachDialogUI.Instance?.Reposition(null);
                 break;
 
             case TutorialState.Match_Toss:
-                CoachDialogUI.Instance?.ShowMessage("It's time for the TOSS! Pick Heads or Tails. Winner chooses to Bat or Bowl first.", false);
+                CoachDialogUI.Instance?.ShowMessage("It's time for the toss! Pick Heads or Tails. The winner decides who bats or bowls first.", false);
                 SpotlightUI.Instance?.ShowFullOverlay();
                 break;
 
             case TutorialState.Match_Decision:
-                CoachDialogUI.Instance?.ShowMessage("You won the toss! Choose to BAT first to set a high score.", false);
+                CoachDialogUI.Instance?.ShowMessage("You won the toss! Choose to BAT first. Batting first means you set the target score.", false);
                 SpotlightUI.Instance?.ShowFullOverlay();
                 break;
 
             case TutorialState.Match_Gameplay_Batting:
                 if (!_battingExplained)
                 {
-                    CoachDialogUI.Instance?.ShowMessage("BATTING: Pick a number. If it's different from the bowler, you get those runs!", false);
+                    CoachDialogUI.Instance?.ShowMessage("BATTING: Choose a number from 1 to 6. If your number is different from the bowler's, you score those runs. But if both numbers match, you're OUT!", false);
                     SpotlightUI.Instance?.ShowFullOverlay();
                     _battingExplained = true;
                 }
@@ -184,7 +191,7 @@ public class TutorialManager : MonoBehaviour
             case TutorialState.Match_Gameplay_Bowling:
                 if (!_bowlingExplained)
                 {
-                    CoachDialogUI.Instance?.ShowMessage("BOWLING: Try to guess the batsman's number. If you match, it's a WICKET!", false);
+                    CoachDialogUI.Instance?.ShowMessage("BOWLING: Choose a number from 1 to 6. If your number matches the batsman's number, you take a WICKET and end their turn!", false);
                     SpotlightUI.Instance?.ShowFullOverlay();
                     _bowlingExplained = true;
                 }
@@ -211,11 +218,13 @@ public class TutorialManager : MonoBehaviour
         if (_targetRegistry.TryGetValue(key, out RectTransform target))
         {
             SpotlightUI.Instance?.Show(target);
+            CoachDialogUI.Instance?.Reposition(target);
         }
         else
         {
             // If target not yet registered (e.g. screen loading), it will update once RegisterTarget is called.
             SpotlightUI.Instance?.Hide();
+            CoachDialogUI.Instance?.Reposition(null);
         }
     }
 
@@ -245,7 +254,7 @@ public class TutorialManager : MonoBehaviour
                 if (actionId == "Continue") 
                 {
                     _currentSubStep++;
-                    if (_currentSubStep >= 2) OnMatchIntroFinished?.Invoke();
+                    if (_currentSubStep >= 3) OnMatchIntroFinished?.Invoke();
                     else UpdateSpotlightForCurrentState();
                 }
                 break;
