@@ -16,6 +16,7 @@ public class TutorialMatchSimulation : MonoBehaviour
     private int _target = 0;
     private int _inningsCount = 1;
 
+    private string _stadiumName;
     private int _maxOvers = 1;
     private int _maxWickets = 1;
 
@@ -29,11 +30,14 @@ public class TutorialMatchSimulation : MonoBehaviour
         Instance = this;
     }
 
-    public void SetMatchConfig(int overs, int wickets)
+    private int _currentInningsWickets = 0;
+
+    public void SetMatchConfig(string stadiumName, int overs, int wickets)
     {
+        _stadiumName = stadiumName;
         _maxOvers = overs;
         _maxWickets = wickets;
-        Debug.Log($"Tutorial: Configured for {_maxOvers} Overs, {_maxWickets} Wickets.");
+        Debug.Log($"Tutorial: Configured for stadium {_stadiumName}, {_maxOvers} Overs, {_maxWickets} Wickets.");
     }
 
     public void StartSimulation()
@@ -57,6 +61,7 @@ public class TutorialMatchSimulation : MonoBehaviour
         _botScore = 0;
         _isUserBatting = true;
         _ballsThisInnings = 0;
+        _currentInningsWickets = 0;
         _target = 0;
         _inningsCount = 1;
         _isProcessingTurn = false; // Reset lock
@@ -81,7 +86,7 @@ public class TutorialMatchSimulation : MonoBehaviour
             var intro = UIScreenManager.Instance.GetCurrentScreen<MatchIntroScreen>();
             if (intro != null)
             {
-                intro.Init(NakamaSessionManager.Session.Username, _currentBotName, $"Practice @ Selected Stadium\n{_maxOvers} Overs | {_maxWickets} Wickets");
+                intro.Init(NakamaSessionManager.Session.Username, _currentBotName, $"{_stadiumName}\n{_maxOvers} Overs | {_maxWickets} Wickets");
             }
         }
 
@@ -128,6 +133,7 @@ public class TutorialMatchSimulation : MonoBehaviour
         yield return new WaitForSeconds(1f);
         _isUserBatting = (decision == "BAT");
         _ballsThisInnings = 0;
+        _currentInningsWickets = 0;
         
         // Apply config to handler so UI knows the scale (using reflection for private setters)
         typeof(ClientMatchHandler).GetProperty("MaxOvers")?.SetValue(ClientMatchHandler.Instance, _maxOvers);
@@ -164,14 +170,15 @@ public class TutorialMatchSimulation : MonoBehaviour
         int botNum = UnityEngine.Random.Range(1, 7);
         string eventType = "RUN";
 
-        // Forced wicket logic for tutorial length control
-        bool forceWicket = (_ballsThisInnings >= 6); 
-        if (_ballsThisInnings >= 3 && UnityEngine.Random.value > 0.7f) forceWicket = true;
+        // Balanced wicket logic for tutorial
+        bool forceWicket = false; 
+        if (_ballsThisInnings >= 4 && UnityEngine.Random.value > 0.85f) forceWicket = true;
 
         if (botNum == userNum || forceWicket)
         {
             botNum = userNum;
             eventType = "WICKET";
+            _currentInningsWickets++;
         }
 
         _balls++;
@@ -181,14 +188,14 @@ public class TutorialMatchSimulation : MonoBehaviour
         if (_isUserBatting) _userScore += turnScore;
         else _botScore += turnScore;
 
-        Debug.Log($"[TutorialSimulation] Turn: {userNum} vs {botNum} ({eventType}). Total: {(_isUserBatting?_userScore:_botScore)}");
+        Debug.Log($"[TutorialSimulation] Turn: {userNum} vs {botNum} ({eventType}). Total: {(_isUserBatting?_userScore:_botScore)}/{_currentInningsWickets}");
 
         var result = new ClientMatchHandler.TurnResultPayload
         {
             bat_input = _isUserBatting ? userNum : botNum,
             bowl_input = _isUserBatting ? botNum : userNum,
             batsman_score = _isUserBatting ? _userScore : _botScore,
-            batsman_wickets = (eventType == "WICKET") ? 1 : 0,
+            batsman_wickets = _currentInningsWickets,
             balls = _balls - 1, // Offset to match server's "pre-increment" broadcast style
             event_type = eventType,
             @event = eventType,
@@ -201,7 +208,7 @@ public class TutorialMatchSimulation : MonoBehaviour
         yield return new WaitForSeconds(2.5f);
         _isProcessingTurn = false; // Release lock after simulation time
 
-        bool inningsOver = (eventType == "WICKET" || _balls >= (_maxOvers * 6));
+        bool inningsOver = (_currentInningsWickets >= _maxWickets || _balls >= (_maxOvers * 6));
         
         // CHASE LOGIC
         if (_inningsCount == 2)
@@ -235,6 +242,7 @@ public class TutorialMatchSimulation : MonoBehaviour
         _isUserBatting = !_isUserBatting;
         _balls = 0;
         _ballsThisInnings = 0;
+        _currentInningsWickets = 0;
         _inningsCount = 2; // Move to Innings 2
 
         var payload = new ClientMatchHandler.InningsChangePayload

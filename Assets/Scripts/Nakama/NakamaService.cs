@@ -40,9 +40,21 @@ public class NakamaService
         return id;
     }
 
+    private static ISession _currentSocketSession;
+
     public static async Task ConnectSocket(
         ISession session)
     {
+        if (Socket != null && Socket.IsConnected && _currentSocketSession?.AuthToken != session.AuthToken)
+        {
+            Debug.Log("NakamaService: Session changed. Refreshing socket...");
+            IsIntentionalDisconnect = true;
+            Socket.Closed -= OnSocketClosed;
+            await Socket.CloseAsync();
+            Socket = null;
+            IsIntentionalDisconnect = false;
+        }
+
         if (Socket == null)
             Socket = Client.NewSocket();
 
@@ -52,6 +64,7 @@ public class NakamaService
         if (!Socket.IsConnected)
         {
             await Socket.ConnectAsync(session);
+            _currentSocketSession = session;
             
             // Initialize Singleton Services once socket is alive
             SocialService.Instance.Initialize(Socket);

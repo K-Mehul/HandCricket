@@ -8088,7 +8088,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'SCORE : 0'
+  m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 598f99ad19652ac4dae3565366ae190f, type: 2}
   m_sharedMaterial: {fileID: 7784884714123353300, guid: 598f99ad19652ac4dae3565366ae190f, type: 2}
@@ -18049,6 +18049,14 @@ PrefabInstance:
       propertyPath: m_fontSizeMax
       value: 40
       objectReference: {fileID: 0}
+    - target: {fileID: 1143685169057168429, guid: d48474363abafef41abe52e71b65b000, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0.24188232
+      objectReference: {fileID: 0}
+    - target: {fileID: 1143685169057168429, guid: d48474363abafef41abe52e71b65b000, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 7.2449036
+      objectReference: {fileID: 0}
     - target: {fileID: 5068316474118919186, guid: d48474363abafef41abe52e71b65b000, type: 3}
       propertyPath: m_Name
       value: LobbyButton
@@ -18063,19 +18071,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7309928696088224064, guid: d48474363abafef41abe52e71b65b000, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 0
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 7309928696088224064, guid: d48474363abafef41abe52e71b65b000, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 1
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 7309928696088224064, guid: d48474363abafef41abe52e71b65b000, type: 3}
       propertyPath: m_AnchorMin.x
-      value: 0
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 7309928696088224064, guid: d48474363abafef41abe52e71b65b000, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 1
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 7309928696088224064, guid: d48474363abafef41abe52e71b65b000, type: 3}
       propertyPath: m_SizeDelta.x
@@ -18115,11 +18123,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7309928696088224064, guid: d48474363abafef41abe52e71b65b000, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 960
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7309928696088224064, guid: d48474363abafef41abe52e71b65b000, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -100
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7309928696088224064, guid: d48474363abafef41abe52e71b65b000, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x

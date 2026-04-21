@@ -129,8 +129,24 @@ public class RegisterUI : UIScreen
                 return;
             }
 
-            Debug.Log("Registered Successfully");
-            GoLogin();
+            Debug.Log("Registered Successfully. Auto-logging in...");
+            
+            // Connect socket with the session (linking or fresh)
+            await NakamaService.ConnectSocket(NakamaSessionManager.Session);
+
+            if (SocialService.Instance != null)
+            {
+                SocialService.Instance.Initialize(NakamaService.Socket);
+                _ = SocialService.Instance.SetOnlineStatus(true);
+            }
+
+            // Sync tutorial status
+            if (TutorialManager.Instance != null)
+            {
+                _ = TutorialManager.Instance.CheckTutorialStatusFromBackend();
+            }
+
+            UIScreenManager.Instance.Show("MainMenuScreen");
         }
         catch (System.Exception e)
         {

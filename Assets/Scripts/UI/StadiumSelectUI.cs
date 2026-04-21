@@ -103,7 +103,7 @@ public class StadiumSelectUI : UIScreen
             {
                 if (TutorialMatchSimulation.Instance != null)
                 {
-                    TutorialMatchSimulation.Instance.SetMatchConfig(data.overs, data.wickets);
+                    TutorialMatchSimulation.Instance.SetMatchConfig(data.name, data.overs, data.wickets);
                 }
                 TutorialManager.Instance.OnActionCompleted("Stadium");
             }

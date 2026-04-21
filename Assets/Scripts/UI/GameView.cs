@@ -537,11 +537,12 @@ public class GameView : MonoBehaviour
     {
         if (floatingScorePrefab == null || gameplayUIOverlay == null) return;
 
-        // 1. Show Batsman Choice
-        // CreateFloatingBubble(batsmanAnimator.transform, batVal, _isUserBatting ? Color.green : Color.yellow);
-        
-        // 2. Show Bowler Choice
-        CreateFloatingBubble(bowlerAnimator.transform, bowlVal, _isUserBatting ? Color.yellow : Color.green);
+        if(_isUserBatting){
+            CreateFloatingBubble(bowlerAnimator.transform, bowlVal, _isUserBatting ? Color.yellow : Color.green);
+        }
+        else{
+            CreateFloatingBubble(batsmanAnimator.transform, batVal, _isUserBatting ? Color.green : Color.yellow);
+        }
     }
 
     private void CreateFloatingBubble(Transform targetWorld, int value, Color color)
