@@ -331,6 +331,7 @@ public class GamePresenter
         _amIBatting = amBatting;
         _view.ShowPanel("Game");
         _view.UpdateRole(_amIBatting ? "BATTING" : "BOWLING");
+        _view.SetUniforms(_amIBatting);
         _view.ClearBallHistory();
             
         // SEQUENTIAL BANNER KICKOFF
@@ -536,6 +537,7 @@ public class GamePresenter
         _view.ClearBallHistory();
         _amIBatting = (_pendingInningsPayload.batting_player_id == NakamaSessionManager.Session.UserId);
         _view.UpdateRole(_amIBatting ? "BATTING" : "BOWLING");
+        _view.SetUniforms(_amIBatting);
 
         // SEQUENTIAL BANNER KICKOFF FOR 2ND INNINGS
         _view.ShowPhaseBanner($"TARGET: {_pendingInningsPayload.target}", 2.0f, () => {

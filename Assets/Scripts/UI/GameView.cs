@@ -103,6 +103,25 @@ public class GameView : MonoBehaviour
     [Header("Simulation Tuning")]
     public float simSpeedMultiplier = 1.5f;
 
+    [Header("Team Uniforms")]
+    public TeamUniform team1;
+    public TeamUniform team2;
+
+    [Header("Uniform Renderers")]
+    public SkinnedMeshRenderer[] batsmanJerseyParts;
+    public SkinnedMeshRenderer[] bowlerJerseyParts;
+    
+    [Header("Equipment Renderers (Pads/Gloves/Caps)")]
+    public SkinnedMeshRenderer[] batsmanEquipmentParts;
+
+    [Serializable]
+    public class TeamUniform
+    {
+        public Texture2D battingJersey;
+        public Texture2D bowlingJersey;
+        public Color equipmentColor = Color.white;
+    }
+
     // Current Match Simulation State
     private int _currentBatVal;
     private int _currentBowlVal;
@@ -968,6 +987,73 @@ public class GameView : MonoBehaviour
         {
             Camera.main.transform.DOKill(true); // Stop existing shakes
             Camera.main.transform.DOShakePosition(duration, strength);
+        }
+    }
+
+    public void SetUniforms(bool amIBatting)
+    {
+        // Team mapping: User = Team 1, Opponent = Team 2
+        // Batsman is either you (Team 1 Batting) or opponent (Team 2 Batting)
+        Texture2D bJersey = amIBatting ? team1.battingJersey : team2.battingJersey;
+        Color bEquip = amIBatting ? team1.equipmentColor : team2.equipmentColor;
+        
+        // Bowler is either opponent (Team 2 Bowling) or you (Team 1 Bowling)
+        Texture2D wJersey = amIBatting ? team2.bowlingJersey : team1.bowlingJersey;
+        Color wEquip = amIBatting ? team2.equipmentColor : team1.equipmentColor;
+
+        ApplyJerseyToRenderers(batsmanJerseyParts, bJersey);
+        ApplyColorToRenderers(batsmanEquipmentParts, bEquip);
+
+        ApplyJerseyToRenderers(bowlerJerseyParts, wJersey);
+    }
+
+    private void ApplyJerseyToRenderers(SkinnedMeshRenderer[] renderers, Texture2D tex)
+    {
+        if (renderers == null || tex == null) return;
+
+        foreach (var r in renderers)
+        {
+            if (r == null) continue;
+            
+            foreach (var mat in r.materials)
+            {
+                if (mat == null) continue;
+
+                // URP Support (_BaseMap) with fallback to Standard (_MainTex)
+                if (mat.HasProperty("_BaseMap"))
+                {
+                    mat.SetTexture("_BaseMap", tex);
+                }
+                else if (mat.HasProperty("_MainTex"))
+                {
+                    mat.SetTexture("_MainTex", tex);
+                }
+            }
+        }
+    }
+
+    private void ApplyColorToRenderers(SkinnedMeshRenderer[] renderers, Color color)
+    {
+        if (renderers == null) return;
+
+        foreach (var r in renderers)
+        {
+            if (r == null) continue;
+
+            foreach (var mat in r.materials)
+            {
+                if (mat == null) continue;
+
+                // URP Support (_BaseColor) with fallback to Standard (_Color)
+                if (mat.HasProperty("_BaseColor"))
+                {
+                    mat.SetColor("_BaseColor", color);
+                }
+                else if (mat.HasProperty("_Color"))
+                {
+                    mat.SetColor("_Color", color);
+                }
+            }
         }
     }
 }
