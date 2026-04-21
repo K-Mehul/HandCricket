@@ -9893,6 +9893,7 @@ MonoBehaviour:
   password: {fileID: 2125172397}
   username: {fileID: 1305171228}
   errorText: {fileID: 1444876941}
+  registerButton: {fileID: 1760946014}
 --- !u!114 &628376997
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15085,6 +15086,7 @@ MonoBehaviour:
   email: {fileID: 1977964496}
   password: {fileID: 1156746319}
   errorText: {fileID: 373053659}
+  loginButton: {fileID: 1719040280}
   userData: {fileID: 11400000, guid: b33a6d9e185a923448b014d743ed3f1f, type: 2}
 --- !u!114 &1054075588
 MonoBehaviour:

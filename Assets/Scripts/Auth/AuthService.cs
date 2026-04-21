@@ -9,7 +9,9 @@ public class AuthService
     IClient client =>
         NakamaService.Client;
 
-    private Task<AuthResult> _pendingLoginTask;
+    private Task<AuthResult> _pendingLoginDeviceTask;
+    private Task<AuthResult> _pendingLoginEmailTask;
+    private Task<AuthResult> _pendingRegisterTask;
 
     private System.Collections.Generic.Dictionary<string, string> GetAuthVars()
     {
@@ -22,6 +24,18 @@ public class AuthService
         string email,
         string password,
         string username)
+    {
+        if (_pendingRegisterTask != null && !_pendingRegisterTask.IsCompleted)
+        {
+            Debug.Log("AuthService: Redundant Register call detected. Awaiting existing task...");
+            return await _pendingRegisterTask;
+        }
+
+        _pendingRegisterTask = PerformRegister(email, password, username);
+        return await _pendingRegisterTask;
+    }
+
+    private async Task<AuthResult> PerformRegister(string email, string password, string username)
     {
         Debug.Log($"AuthService: Starting Register for {email}...");
         if (!AuthValidator.ValidateEmail(email))
@@ -77,6 +91,18 @@ public class AuthService
         string email,
         string password)
     {
+        if (_pendingLoginEmailTask != null && !_pendingLoginEmailTask.IsCompleted)
+        {
+            Debug.Log("AuthService: Redundant LoginEmail call detected. Awaiting existing task...");
+            return await _pendingLoginEmailTask;
+        }
+
+        _pendingLoginEmailTask = PerformLoginEmail(email, password);
+        return await _pendingLoginEmailTask;
+    }
+
+    private async Task<AuthResult> PerformLoginEmail(string email, string password)
+    {
         Debug.Log($"AuthService: Starting Login for {email}...");
         try
         {
@@ -126,14 +152,14 @@ public class AuthService
 
     public async Task<AuthResult> LoginDevice()
     {
-        if (_pendingLoginTask != null && !_pendingLoginTask.IsCompleted)
+        if (_pendingLoginDeviceTask != null && !_pendingLoginDeviceTask.IsCompleted)
         {
             Debug.Log("AuthService: Redundant LoginDevice call detected. Awaiting existing task...");
-            return await _pendingLoginTask;
+            return await _pendingLoginDeviceTask;
         }
 
-        _pendingLoginTask = PerformLoginDevice();
-        return await _pendingLoginTask;
+        _pendingLoginDeviceTask = PerformLoginDevice();
+        return await _pendingLoginDeviceTask;
     }
 
     private async Task<AuthResult> PerformLoginDevice()

@@ -9,6 +9,10 @@ public class RegisterUI : UIScreen
     public TMP_InputField password;
     public TMP_InputField username;
     public TextMeshProUGUI errorText;
+    public UnityEngine.UI.Button registerButton;
+    
+    private bool _isRegistering = false;
+    private string _originalRegisterText = "REGISTER";
 
     AuthService auth = new();
     ProfileService profile = new();
@@ -30,6 +34,8 @@ public class RegisterUI : UIScreen
         if(username != null) username.text = string.Empty;
         if(password != null) password.text = string.Empty;
         if(email != null) email.text = string.Empty;
+        
+        SetLoadingState(false);
     }
    
 
@@ -88,43 +94,72 @@ public class RegisterUI : UIScreen
 
     public async void Register()
     {
+        if (_isRegistering) return;
+
         if (string.IsNullOrEmpty(email.text) || string.IsNullOrEmpty(password.text) || string.IsNullOrEmpty(username.text))
         {
             if (errorText != null)
             {
                 errorText.text = "Please fill in all fields.";
-                // Try to find a UIAnimation on the error text or just do it via code for specific feedback
                 var anim = errorText.GetComponent<UIAnimation>();
                 if (anim != null && anim.animationType == UIAnimation.AnimType.Punch) anim.Play();
                 else errorText.transform.DOPunchPosition(new Vector3(10, 0, 0), 0.5f);
                 return;
             }
-
             return;
         }
-        
-        var result =
-            await auth.Register(
-                email.text,
-                password.text,
-                username.text);
 
-        if (!result.IsSuccess)
+        SetLoadingState(true);
+
+        try
         {
-            Debug.Log(result.Error);
-            if (errorText != null)
-            {
-                errorText.text = result.Error;
-                // Try to find a UIAnimation on the error text or just do it via code for specific feedback
-                var anim = errorText.GetComponent<UIAnimation>();
-                if (anim != null && anim.animationType == UIAnimation.AnimType.Punch) anim.Play();
-                else errorText.transform.DOPunchPosition(new Vector3(10, 0, 0), 0.5f);
-            }
-            return;
-        }
+            var result = await auth.Register(email.text, password.text, username.text);
 
-        GoLogin();
-        Debug.Log("Registered Successfully");
+            if (!result.IsSuccess)
+            {
+                Debug.Log(result.Error);
+                if (errorText != null)
+                {
+                    errorText.text = result.Error;
+                    var anim = errorText.GetComponent<UIAnimation>();
+                    if (anim != null && anim.animationType == UIAnimation.AnimType.Punch) anim.Play();
+                    else errorText.transform.DOPunchPosition(new Vector3(10, 0, 0), 0.5f);
+                }
+                SetLoadingState(false);
+                return;
+            }
+
+            Debug.Log("Registered Successfully");
+            GoLogin();
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Register Error: {e.Message}");
+            if (errorText != null) errorText.text = "An unexpected error occurred.";
+            SetLoadingState(false);
+        }
+    }
+
+    private void SetLoadingState(bool isLoading)
+    {
+        _isRegistering = isLoading;
+        if (registerButton != null)
+        {
+            registerButton.interactable = !isLoading;
+            var btnText = registerButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (btnText != null)
+            {
+                if (isLoading)
+                {
+                    _originalRegisterText = btnText.text;
+                    btnText.text = "REGISTERING...";
+                }
+                else
+                {
+                    btnText.text = _originalRegisterText;
+                }
+            }
+        }
     }
 
     public void GoLogin()
