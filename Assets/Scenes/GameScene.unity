@@ -11220,6 +11220,8 @@ MonoBehaviour:
   totalOversText: {fileID: 2037650797}
   ballHistoryContainer: {fileID: 1505284686}
   ballIconPrefab: {fileID: 399409935400440007, guid: a1ff9dad90eaa754bbccc4591b7f70ca, type: 3}
+  floatingScorePrefab: {fileID: 399409935400440007, guid: 1054805bc950bb24eb6ee01ff18cfeaf, type: 3}
+  gameplayUIOverlay: {fileID: 1032737950}
   resultPanel: {fileID: 521200138}
   resultTitleText: {fileID: 713843291}
   resultDetailsText: {fileID: 513789772}

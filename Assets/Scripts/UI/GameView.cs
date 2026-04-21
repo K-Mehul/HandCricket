@@ -57,6 +57,10 @@ public class GameView : MonoBehaviour
     public Transform ballHistoryContainer;
     public GameObject ballIconPrefab;
 
+    [Header("Floating Choice UX")]
+    public GameObject floatingScorePrefab;
+    public RectTransform gameplayUIOverlay;
+
     [Header("Result UI")]
     public GameObject resultPanel;
     public TextMeshProUGUI resultTitleText;
@@ -102,6 +106,7 @@ public class GameView : MonoBehaviour
     // Current Match Simulation State
     private int _currentBatVal;
     private int _currentBowlVal;
+    private bool _isUserBatting; // Track who is who for coloring
     private Action _currentOnComplete;
     private Tween _releaseFallback;
 
@@ -244,7 +249,7 @@ public class GameView : MonoBehaviour
 
     public void UpdateRole(string role)
     {
-        // if (footerRoleText != null) footerRoleText.text = role.ToUpper();
+        _isUserBatting = (role.ToUpper() == "BATTING");
     }
 
     public void ShowYourTurn(bool show)
@@ -528,6 +533,63 @@ public class GameView : MonoBehaviour
         // UpdateScoreDisplay("%SAME%", $"Auto-Selected: {choice}!");
     }
 
+    public void ShowFloatingChoices(int batVal, int bowlVal)
+    {
+        if (floatingScorePrefab == null || gameplayUIOverlay == null) return;
+
+        // 1. Show Batsman Choice
+        CreateFloatingBubble(batsmanAnimator.transform, batVal, _isUserBatting ? Color.green : Color.yellow);
+        
+        // 2. Show Bowler Choice
+        CreateFloatingBubble(bowlerAnimator.transform, bowlVal, _isUserBatting ? Color.yellow : Color.green);
+    }
+
+    private void CreateFloatingBubble(Transform targetWorld, int value, Color color)
+    {
+        GameObject bubble = Instantiate(floatingScorePrefab, gameplayUIOverlay);
+        var text = bubble.GetComponentInChildren<TextMeshProUGUI>();
+        if (text != null)
+        {
+            text.text = value.ToString();
+            text.color = color;
+        }
+
+        // World to Screen Positioning
+        Camera cam = _mainCam != null ? _mainCam : Camera.main;
+        Vector3 screenPos = cam.WorldToScreenPoint(targetWorld.position + Vector3.up * 2.2f);
+        
+        // Safety: Don't show if behind camera
+        if (screenPos.z < 0) 
+        {
+            Destroy(bubble);
+            return;
+        }
+
+        RectTransform rect = bubble.GetComponent<RectTransform>();
+        
+        // Reset anchors and pivot to center to ensure anchoredPosition is predictable
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+
+        // Get the canvas to determine if we need a camera for the UI projection
+        Canvas canvas = gameplayUIOverlay.GetComponentInParent<Canvas>();
+        Camera uiCam = (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay) ? canvas.worldCamera : null;
+
+        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(gameplayUIOverlay, screenPos, uiCam, out Vector2 localPos))
+        {
+            rect.anchoredPosition = localPos;
+        }
+
+        // Animation: Pop, Float, Fade
+        bubble.transform.localScale = Vector3.zero;
+        Sequence seq = DOTween.Sequence();
+        seq.Append(bubble.transform.DOScale(1.2f, 0.3f).SetEase(Ease.OutBack));
+        seq.Join(rect.DOAnchorPosY(localPos.y + 100f, 1.5f).SetEase(Ease.OutQuad));
+        seq.Insert(0.8f, text.DOFade(0f, 0.7f));
+        seq.OnComplete(() => Destroy(bubble));
+    }
+
     public void PlayPerfectSimulation(int batVal, int bowlVal, Action onComplete)
     {
         ResetAnimators();
@@ -578,6 +640,9 @@ public class GameView : MonoBehaviour
         if (_isBallReleased || ballTransform == null) return;
         _isBallReleased = true;
         if (_releaseFallback != null) _releaseFallback.Kill();
+
+        // REVEAL CHOICES NOW
+        ShowFloatingChoices(_currentBatVal, _currentBowlVal);
 
         // Position and Show Ball
         if (bowlerHandPoint != null) ballTransform.position = bowlerHandPoint.position;
